@@ -2483,7 +2483,20 @@ UP EQU 0
 DOWN EQU 1
 RIGHT EQU 2
 
+delay_small macro
+    movlw 248 ; Valor inicial del contador
+    movwf cont_small
+    decfsz cont_small, 1 ; Decrmentar el contador
+    goto $-1 ; Ejecutar linea anterior
+    endm
 
+delay_big macro
+    movlw 5
+    movwf cont_big
+    delay_small
+    decfsz cont_big, 1
+    goto $-2
+    endm
 
 ; Variables a utilizar
 PSECT udata_bank0
@@ -2520,6 +2533,29 @@ PSECT udata_bank0
  tiempoii: DS 1
  tiempoiii: DS 1
  tiempoiiii: DS 1
+ selectorr: DS 1
+ ver: DS 1
+ ver1: DS 1
+ cont_big: DS 1
+ cont_small: DS 1
+ sem: DS 1
+ int1: DS 1
+ int2: DS 1
+ verdec: DS 1
+ verdet: DS 1
+ resta: DS 1
+ count01: DS 1
+ count02: DS 1
+ count03: DS 1
+ amarillo: DS 1
+ sem1: DS 1
+ resets: DS 1
+ comp: DS 1
+ comp1: DS 1
+ resetc: DS 1
+ comp2: DS 1
+ comp3: DS 1
+
 
 
 
@@ -2576,6 +2612,9 @@ pop:
 
 int_t1:
     banksel PORTA
+    incf count01
+    incf count02
+    incf count03
     call reiniciar_tmr1
     call secuencia1
     call secuencia2
@@ -2774,7 +2813,8 @@ main:
     call sumas
     call sumas1
     call sumas2
-    call sumas3
+    call inicio
+    call semaforo
  goto loop
 
 
@@ -3072,11 +3112,19 @@ bajar:
     return
 
  aceptar:
-    call inicio
+    clrf tiempo1
+    clrf tiempo2
+    clrf tiempo3
+    clrf count01
+    clrf count02
+    clrf count03
+    clrf sem
+    bcf resets, 0
+    clrf STATUS
     movf tiempoi, W
-    movwf contador1
-    movf tiempoii,W
     movwf contador
+    movf tiempoii, W
+    movwf contador1
     movf tiempoiii, W
     movwf contador2
     movf total1, W
@@ -3085,13 +3133,16 @@ bajar:
     movwf tiempo2
     movf total3, W
     movwf tiempo3
+    movlw 01110111B
+    movwf disp+6
+    movlw 00111001B
+    movwf disp+7
     return
 
  cancelar:
     clrf selector
     clrf disp+6
     clrf disp+7
-    call modos1
     bcf PORTB, 5
     bcf PORTB, 6
     bcf PORTB, 7
@@ -3118,16 +3169,20 @@ bajar:
     movwf tiempo6
     return
 
-sumas3:
-    movf tiempo1, W
-    addwf segundo, W
-    movwf tiempoi
+ resta1:
+    movf segundo, W
+    subwf contador2, W
+    movwf tiempoiiii
+    movf tiempoiiii, W
     return
 
+
 inicio:
-    movf tiempo2
+    movf tiempo1, W
+    movwf tiempoi
+    movf tiempo1, W
     movwf tiempoii
-    movf tiempo3
+    movf tiempo6, W
     movwf tiempoiii
     return
 
@@ -3140,11 +3195,12 @@ inicio:
     goto $+8
     movlw 1
     xorwf delay, 1
-    movf tiempo1, W
-    movwf contador
-    btfsc delay, 0
     movf tiempo4, W
     movwf contador
+    btfsc delay, 0
+    movf tiempo1, W
+    movwf contador
+    movf contador, W
     return
 
  secuencia2:
@@ -3172,13 +3228,243 @@ secuencia3:
     goto $+8
     movlw 1
     xorwf delay2, 1
-    movf tiempo3, W
+    movf tiempo6, W
     movwf contador2
     btfss delay2, 0
-    movf tiempo6, W
+    movf tiempo3, W
     movwf contador2
     return
 
+
+
+semaforo:
+    btfsc sem, 0
+    goto semaforo2
+    btfsc sem, 1
+    goto semaforo3
+    btfsc sem, 2
+    goto semaforo4
+    btfsc sem, 3
+    goto semaforo5
+    btfsc sem, 4
+    goto semaforo6
+    btfsc sem, 5
+    goto semaforo7
+    btfsc sem, 6
+    goto semaforo8
+    btfsc sem, 7
+    goto semaforo9
+    btfsc resets, 0
+    goto resetsem
+
+
+semaforo1:
+    bcf PORTA, 0
+    bcf PORTA, 1
+    bsf PORTA, 2
+    bsf PORTA, 3
+    bcf PORTA, 4
+    bcf PORTA, 5
+    bsf PORTA, 6
+    bcf PORTA, 7
+    bcf PORTB, 4
+    bcf STATUS, 2
+    movf tiempo1, w
+    movwf verdec
+    movlw 5
+    subwf verdec, 1
+    movf verdec, w
+    movwf resta
+    movf count01, w
+    subwf verdec, 1
+    btfss STATUS, 2
+    goto $+2
+    bsf sem, 0
+    return
+
+semaforo2:
+    bcf STATUS, 2
+    bsf PORTA, 2
+    delay_big
+    bcf PORTA, 2
+    call sumas5
+    movf ver, W
+    movwf verdet
+    movf count01, w
+    subwf verdet, 1
+    btfss STATUS, 2
+    goto $+3
+    bcf sem, 0
+    bsf sem, 1
+    return
+
+semaforo3:
+    bcf STATUS, 2
+    bsf PORTA, 1
+    call sumas4
+    movf ver, W
+    movwf amarillo
+    movf count01, w
+    subwf amarillo, 1
+    btfss STATUS, 2
+    goto $+3
+    bcf sem, 1
+    bsf sem, 2
+    return
+
+semaforo4:
+    bsf PORTA, 0
+    bcf PORTA, 1
+    bcf PORTA, 2
+    bcf PORTA, 3
+    bcf PORTA, 4
+    bsf PORTA, 5
+    bsf PORTA, 6
+    bcf PORTA, 7
+    bcf PORTB, 4
+    bcf STATUS, 2
+    movf tiempo2, w
+; call comparacion
+    movwf verdec
+    movlw 255
+    subwf verdec, 1
+    movlw 10
+    addwf verdec, 1
+    movf verdec, w
+    movwf resta
+    movf count02, w
+    subwf verdec, 1
+    btfss STATUS, 2
+    goto $+3
+    bcf sem, 2
+    bsf sem, 3
+    return
+
+semaforo5:
+    bcf STATUS, 2
+    bsf PORTA, 5
+    delay_big
+    bcf PORTA, 5
+; call comparacion1
+    call sumas5
+    movf ver, W
+    movwf verdet
+    movf count02, w
+    subwf verdet, 1
+    btfss STATUS, 2
+    goto $+9
+    bcf sem, 3
+    bsf sem, 4
+    return
+
+semaforo6:
+    bcf STATUS, 2
+    bsf PORTA, 4
+    call sumas4
+    movf ver, W
+    movwf amarillo
+    movf count02, w
+    subwf amarillo, 1
+    btfss STATUS, 2
+    goto $+3
+    bcf sem, 4
+    bsf sem, 5
+    return
+
+semaforo7:
+    bsf PORTA, 0
+    bcf PORTA, 1
+    bcf PORTA, 2
+    bsf PORTA, 3
+    bcf PORTA, 4
+    bcf PORTA, 5
+    bcf PORTA, 6
+    bcf PORTA, 7
+    bsf PORTB, 4
+    bcf STATUS, 2
+    movf tiempo3, w
+    movwf verdec
+    movlw 255
+    subwf verdec, 1
+    movlw 25
+    addwf verdec, 1
+    movf verdec, w
+    movwf resta
+    movf count03, w
+    subwf verdec, 1
+    btfss STATUS, 2
+    goto $+3
+    bcf sem, 5
+    bsf sem, 6
+    return
+
+semaforo8:
+    bcf STATUS, 2
+    bsf PORTB, 4
+    delay_big
+    bcf PORTB, 4
+    call sumas6
+    movf ver, W
+    movwf verdet
+    movf count03, w
+    subwf verdet, 1
+    btfss STATUS, 2
+    goto $+9
+    bcf sem, 6
+    bsf sem, 7
+    return
+
+semaforo9:
+    bcf STATUS, 2
+    bsf PORTA, 7
+    call sumas7
+    movf ver, W
+    movwf amarillo
+    movf count03, w
+    subwf amarillo, 1
+    btfss STATUS, 2
+    goto $+3
+    bcf sem, 7
+    bsf resets, 0
+    return
+
+
+resetsem:
+    clrf count01
+    clrf count02
+    clrf count03
+    clrf ver
+    clrf resta
+    clrf sem
+    bcf resets, 0
+    clrf STATUS
+    return
+
+sumas7:
+    movlw 7
+    addwf resta, W
+    movwf ver
+    return
+
+sumas6:
+    movlw 4
+    addwf resta, W
+    movwf ver
+    return
+
+ sumas4:
+    movlw 6
+    addwf resta, W
+    movwf ver
+    return
+
+
+
+ sumas5:
+    movlw 3
+    addwf resta, W
+    movwf ver
+    return
 
 reiniciar_tmr0:
     banksel PORTA
@@ -3195,4 +3481,6 @@ reiniciar_tmr1:
     movwf TMR1H
     bcf ((PIR1) and 07Fh), 0
     return
+
+
 end
